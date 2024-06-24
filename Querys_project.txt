@@ -1,0 +1,122 @@
+/*Question SET#1
+Q1: Solution:*/
+
+SELECT f.title film_title, c.name category_name, rent.rental_count
+FROM film f
+JOIN film_category fc ON f.film_id = fc.film_id
+JOIN category c ON c.category_id = fc.category_id
+JOIN (
+  SELECT i.film_id, COUNT(*) AS rental_count
+  FROM inventory i
+  JOIN rental r ON r.inventory_id = i.inventory_id
+  GROUP BY i.film_id
+) rent ON rent.film_id = f.film_id
+WHERE c.name  IN  ('Animation', 'Children', 'Classics', 'Comedy', 'Family','Music')
+order by 2,1
+
+/*Q2: Solution:*/
+
+SELECT f.title ,c.name,f.rental_duration ,NTILE(4) OVER(ORDER BY rental_duration) AS standard_quartile
+FROM film f
+JOIN film_category fc ON f.film_id = fc.film_id
+JOIN category c ON c.category_id = fc.category_id
+WHERE c.name  IN  ('Animation', 'Children', 'Classics', 'Comedy', 'Family','Music')
+
+/*Q3: Solution:*/
+
+SELECT 
+   t.name,
+   t.standard_quartile,
+   COUNT(*)
+FROM (
+  SELECT 
+     c.name ,
+     NTILE(4) OVER(ORDER BY F.rental_duration) AS standard_quartile
+  FROM film f
+  JOIN film_category fc ON f.film_id = fc.film_id
+  JOIN category c ON c.category_id = fc.category_id
+  WHERE c.name  IN  ('Animation', 'Children', 'Classics', 'Comedy', 'Family','Music')
+)t
+GROUP BY 1,2
+ORDER BY 1,2
+
+
+/*
+Question Set 2:
+Q1: Solution:*/
+
+SELECT DATE_PART('month',r.rental_date) as rental_month,
+DATE_PART('year',r.rental_date)as  rental_year,
+s.store_id,
+count(*)
+FROM staff i
+JOIN  RENTAL r ON i.staff_id = r.staff_id
+JOIN store s ON i.store_id = s.store_id
+WHERE DATE_PART('month',r.rental_date) > 6
+GROUP BY 1,2,3
+ORDER BY 4 DESC
+
+Q2: Solution:
+WITH TOPcustomer AS (
+  SELECT
+     c.customer_id,
+     CONCAT(c.first_name, ' ', c.last_name) AS fullname
+  FROM customer c
+  JOIN payment p ON c.customer_id = p.customer_id
+  WHERE DATE_PART('year',payment_date) = 2007
+  GROUP BY 1
+  ORDER BY SUM(amount) DESC
+  limit 10
+) 
+
+SELECT
+   to_date(cast(payment_date as TEXT),'YYYY-MM'),
+   tc.fullname,
+   count(*),
+   SUM(p.amount)
+FROM payment p
+JOIN TOPcustomer tc ON tc.customer_id = p.customer_id
+group by 1,DATE_PART('month',payment_date),2
+ORDER BY fullname 
+
+
+
+/*
+Q3: Solution:*/
+
+WITH TOPcustomer AS (
+  SELECT
+     c.customer_id,
+     CONCAT(c.first_name, ' ', c.last_name) AS fullname
+  FROM customer c
+  JOIN payment p ON c.customer_id = p.customer_id
+  WHERE DATE_PART('year',payment_date) = 2007
+  GROUP BY 1
+  ORDER BY SUM(amount) DESC
+  LIMIT 10
+), t2 AS (
+  SELECT
+     to_date(cast(payment_date as TEXT),'YYYY-MM') AS payment_date,
+     tc.fullname,
+     COUNT(*) AS pay_countpermon,
+     SUM(p.amount) AS pay_amount,
+     LEAD(SUM(p.amount)) OVER (PARTITION BY tc.fullname ORDER BY to_date(cast(payment_date as TEXT),'YYYY-MM')) AS next_amount,
+     LEAD(SUM(p.amount)) OVER (PARTITION BY tc.fullname ORDER BY to_date(cast(payment_date as TEXT),'YYYY-MM')) - SUM(p.amount) AS diff_amount                                                                   
+  FROM payment p
+  JOIN TOPcustomer tc ON tc.customer_id = p.customer_id
+  GROUP BY 1, to_date(cast(payment_date as TEXT),'YYYY-MM'), 2
+)
+SELECT
+   to_date(cast(payment_date as TEXT),'YYYY-MM') AS pay_mon,
+   fullname,
+   pay_countpermon,
+   pay_amount,
+   next_amount,
+   diff_amount                                                               
+FROM t2
+WHERE diff_amount IS NOT NULL
+ORDER BY diff_amount DESC;
+
+
+
+
